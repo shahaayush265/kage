@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kage — Agentic VM Engine</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon">影</div>
+      <span>KAGE</span>
+    </div>
+
+    <div class="header-controls">
+      <select id="instance-select">
+        <option value="">Loading instances...</option>
+      </select>
+      <span id="instance-status-badge" class="badge stopped">● Offline</span>
+      <div class="metrics-bar" id="metrics-bar">
+        <span>CPU: <strong id="metric-cpu">0.0%</strong></span>
+        <span>RAM: <strong id="metric-ram">0 MB</strong></span>
+      </div>
+      <button id="btn-refresh-status">↻ Refresh</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- Left Screen / Live Stream -->
+    <div class="screen-panel">
+      <div class="screen-wrapper">
+        <img id="screen-img" src="" alt="VM Desktop Stream" style="max-width:100%; max-height:100%; display:none; cursor: crosshair;">
+        <div id="screen-placeholder" style="color: var(--text-secondary); text-align: center;">
+          <p style="font-size: 1.1rem; margin-bottom: 8px;">🖥 VM Desktop</p>
+          <p style="font-size: 0.85rem;">Select an active instance to view live desktop stream</p>
+        </div>
+      </div>
+      <div class="screen-toolbar">
+        <div>
+          <span>Resolution: <strong id="screen-res">1280x800</strong></span>
+          <span style="margin-left: 12px;">Mouse: <strong id="mouse-coords">(0, 0)</strong></span>
+        </div>
+        <div>
+          <button id="btn-screenshot-snapshot">📸 Take Screenshot</button>
+          <button id="btn-toggle-stream">▶ Auto-Refresh</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Controls Panel -->
+    <div class="control-panel">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="tab-agent">🤖 Agent</button>
+        <button class="tab-btn" data-tab="tab-tree">🌳 UI Tree</button>
+        <button class="tab-btn" data-tab="tab-shell">💻 Terminal</button>
+        <button class="tab-btn" data-tab="tab-info">ℹ Info</button>
+      </div>
+
+      <!-- Agent Tab -->
+      <div id="tab-agent" class="tab-content active">
+        <div class="agent-chat" id="agent-steps-feed">
+          <div class="agent-step">
+            <div class="step-header">Kage Autonomous Agent Ready</div>
+            <div class="step-thought">Enter instructions below to command the AI agent inside this VM. The agent utilizes AT-SPI accessibility parsing and visual feedback.</div>
+          </div>
+        </div>
+
+        <div class="agent-input-container">
+          <div style="display:flex; gap:8px;">
+            <select id="agent-model-select" style="flex:1;">
+              <option value="anthropic/claude-3-7-sonnet-20250219">Claude 3.7 Sonnet</option>
+              <option value="openai/gpt-4o">GPT-4o</option>
+              <option value="deepseek/deepseek-chat">DeepSeek V3</option>
+              <option value="ollama/qwen2.5-coder:latest">Ollama (Local)</option>
+            </select>
+          </div>
+          <div class="agent-input-row">
+            <input type="text" id="agent-prompt-input" placeholder="e.g., Open terminal, create hello.py, and run it..." />
+            <button class="primary" id="btn-run-agent">Run Agent</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- UI Tree Tab -->
+      <div id="tab-tree" class="tab-content">
+        <div style="margin-bottom: 8px; display:flex; justify-content:space-between; align-items:center;">
+          <span>AT-SPI2 Accessibility Elements</span>
+          <button id="btn-refresh-tree">↻ Refresh Tree</button>
+        </div>
+        <div class="tree-container" id="tree-viewer">Click 'Refresh Tree' to inspect active UI elements.</div>
+      </div>
+
+      <!-- Terminal Tab -->
+      <div id="tab-shell" class="tab-content">
+        <div class="terminal-output" id="terminal-output">$ Ready for guest commands...</div>
+        <div class="agent-input-row">
+          <input type="text" id="shell-cmd-input" placeholder="e.g., uname -a, ps aux, cat /etc/os-release" />
+          <button class="primary" id="btn-exec-shell">Execute</button>
+        </div>
+      </div>
+
+      <!-- Info Tab -->
+      <div id="tab-info" class="tab-content">
+        <h3 style="margin-bottom: 12px; font-size: 1rem;">Instance Details</h3>
+        <div id="instance-info-details" style="font-size: 0.85rem; line-height: 1.8; color: var(--text-secondary);">
+          <p>Select an instance from the top bar.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
