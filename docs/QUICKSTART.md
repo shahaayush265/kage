@@ -50,7 +50,25 @@ Provisioning new Kage instance 'alpha'...
 
 ---
 
-## 4. Observe the Live Desktop & Web Console
+## 4. Onboard AI Models & Providers
+Configure your preferred AI model provider (OmniRoute, Anthropic, OpenAI, DeepSeek, or local Ollama). OmniRoute allows you to connect to all frontier models through a single gateway:
+```bash
+# Interactive setup: discovers all available models from provider endpoint
+kage model onboard
+
+# Or connect OmniRoute directly:
+kage model onboard --provider omniroute --api-key "sk-omniroute-..."
+
+# List available models
+kage model list
+
+# Switch active default model
+kage model set-default omniroute/claude-3-7-sonnet
+```
+
+---
+
+## 5. Observe the Live Desktop & Web Console
 Open the live noVNC stream and interactive AI Agent console in your default browser:
 ```bash
 kage connect alpha
@@ -58,17 +76,15 @@ kage connect alpha
 
 ---
 
-## 5. Command Autonomous AI Agents
+## 6. Command Autonomous AI Agents
 Instruct the autonomous agent to complete tasks inside the VM:
 ```bash
-# Using Claude 3.7 Sonnet (or specify --model openai/gpt-4o)
-export ANTHROPIC_API_KEY="your-api-key"
 kage agent run alpha --prompt "Open terminal, create a python script that calculates fibonacci, and execute it"
 ```
 
 ---
 
-## 6. List and Manage Instances
+## 7. List and Manage Instances
 ```bash
 # View all instances and resource consumption
 kage list

@@ -35,6 +35,21 @@ class AgentRunResponse(BaseModel):
     total_steps: int
 
 
+@router.get("/models")
+async def get_available_models():
+    """List active provider and discovered models."""
+    settings = get_settings()
+    active_prov = settings.get_provider()
+    models = active_prov.models if active_prov and active_prov.models else []
+    if not models:
+        models = [settings.default_model]
+    return {
+        "active_provider": active_prov.display_name if active_prov else settings.active_provider,
+        "default_model": settings.default_model,
+        "models": models,
+    }
+
+
 @router.post("/run", response_model=AgentRunResponse)
 async def run_agent_task(name: str, req: AgentRunRequest):
     """Execute an autonomous AI agent task on the instance."""

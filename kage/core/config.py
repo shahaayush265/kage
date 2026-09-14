@@ -1,12 +1,23 @@
-"""Global configuration and path management for Kage."""
+"""Global configuration, provider registry, and path management for Kage."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+
+class ProviderConfig(BaseModel):
+    """Configuration for a specific AI model provider."""
+
+    name: str  # e.g. "omniroute", "anthropic", "openai", "deepseek", "ollama", "custom"
+    display_name: str = ""
+    api_base: Optional[str] = None
+    api_key: Optional[str] = None
+    models: List[str] = Field(default_factory=list)
+    default_model: Optional[str] = None
 
 
 class KageSettings(BaseModel):
@@ -19,8 +30,10 @@ class KageSettings(BaseModel):
     default_disk_size_gb: int = 20
     default_base_image: str = "ubuntu-24.04-minimal-xfce.qcow2"
     base_image_url: str = "https://cloud-images.ubuntu.com/minimal/releases/noble/release/ubuntu-24.04-minimal-cloudimg-amd64.img"
-    default_model: str = "anthropic/claude-3-7-sonnet-20250219"
+    active_provider: str = "omniroute"
+    default_model: str = "omniroute/claude-3-7-sonnet"
     default_host: str = "127.0.0.1"
+    providers: Dict[str, ProviderConfig] = Field(default_factory=dict)
 
     @property
     def instances_dir(self) -> Path:
@@ -45,11 +58,32 @@ class KageSettings(BaseModel):
         self.images_dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir.mkdir(parents=True, exist_ok=True)
 
+    def get_provider(self, name: Optional[str] = None) -> Optional[ProviderConfig]:
+        """Get provider config by name or active provider."""
+        p_name = name or self.active_provider
+        return self.providers.get(p_name.lower())
+
+    def set_provider(self, provider_config: ProviderConfig, set_active: bool = True) -> None:
+        """Register or update a provider configuration."""
+        self.providers[provider_config.name.lower()] = provider_config
+        if set_active:
+            self.active_provider = provider_config.name.lower()
+            if provider_config.default_model:
+                self.default_model = provider_config.default_model
+        self.save()
+
+    def get_active_model_details(self) -> tuple[str, Optional[str], Optional[str]]:
+        """Resolve (model_name, api_key, api_base) for active provider."""
+        provider = self.get_provider()
+        model = self.default_model
+        api_key = provider.api_key if provider else None
+        api_base = provider.api_base if provider else None
+        return model, api_key, api_base
+
     def save(self) -> None:
         """Save settings to config.json."""
         self.ensure_directories()
         data = self.model_dump(mode="json")
-        # Convert Paths to strings
         for k, v in data.items():
             if isinstance(v, Path):
                 data[k] = str(v)

@@ -15,6 +15,7 @@ from kage.cli.destroy_cmd import destroy_command
 from kage.cli.init_cmd import init_command
 from kage.cli.list_cmd import list_command
 from kage.cli.logs_cmd import logs_command
+from kage.cli.model_cmd import model_app
 from kage.cli.shell_cmd import shell_command
 from kage.cli.stop_cmd import stop_command
 from kage.cli.up_cmd import up_command
@@ -78,6 +79,7 @@ app.command(name="logs", help="View QEMU, serial, or API logs for an instance.")
 
 # Sub-apps
 app.add_typer(agent_app, name="agent")
+app.add_typer(model_app, name="model")
 app.add_typer(config_app, name="config")
 
 

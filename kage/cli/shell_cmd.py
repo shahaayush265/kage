@@ -79,7 +79,9 @@ def shell_command(
             "kage@127.0.0.1",
         ]
         if command:
-            res = subprocess.run(ssh_cmd + ["bash", "-s"], input=command.encode("utf-8"), check=False)
+            res = subprocess.run(
+                ssh_cmd + ["bash", "-s"], input=command.encode("utf-8"), check=False
+            )
             raise typer.Exit(code=res.returncode)
         else:
             console.print(f"[dim]Connecting to {inst.name} via SSH on port {p.ssh}...[/dim]")

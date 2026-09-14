@@ -11,6 +11,7 @@ import httpx
 from kage.agent.prompts import SYSTEM_PROMPT
 from kage.agent.router import LLMRouter
 from kage.agent.tools import TOOL_DEFINITIONS
+from kage.core.config import get_settings
 from kage.core.instance import InstanceConfig
 
 logger = logging.getLogger("kage.agent")
@@ -22,21 +23,34 @@ class AgentRunner:
     def __init__(
         self,
         instance_name: str,
-        model: str = "anthropic/claude-3-7-sonnet-20250219",
+        model: Optional[str] = None,
         max_steps: int = 15,
         temperature: float = 0.2,
         api_key: Optional[str] = None,
         api_base: Optional[str] = None,
     ):
+        settings = get_settings()
+        target_model = model or settings.default_model
+
+        # Auto-resolve api_key and api_base from configured provider if not passed
+        resolved_key = api_key
+        resolved_base = api_base
+        active_prov = settings.get_provider()
+        if active_prov:
+            if not resolved_key and active_prov.api_key:
+                resolved_key = active_prov.api_key
+            if not resolved_base and active_prov.api_base:
+                resolved_base = active_prov.api_base
+
         self.instance_name = instance_name
-        self.model = model
+        self.model = target_model
         self.max_steps = max_steps
         self.temperature = temperature
         self.router = LLMRouter(
-            model=model,
+            model=target_model,
             temperature=temperature,
-            api_key=api_key,
-            api_base=api_base,
+            api_key=resolved_key,
+            api_base=resolved_base,
         )
 
     def _get_guest_base_url(self) -> str:

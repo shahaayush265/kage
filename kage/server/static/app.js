@@ -8,8 +8,31 @@ let rfb = null;
 document.addEventListener("DOMContentLoaded", () => {
   initTabs();
   fetchInstances();
+  fetchAvailableModels();
   setupEventListeners();
 });
+
+async function fetchAvailableModels() {
+  try {
+    const resp = await fetch("/api/v1/instances/default/agent/models");
+    const data = await resp.json();
+    const select = document.getElementById("agent-model-select");
+    if (data.models && data.models.length > 0) {
+      select.innerHTML = "";
+      data.models.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = m;
+        if (m === data.default_model) {
+          opt.selected = true;
+        }
+        select.appendChild(opt);
+      });
+    }
+  } catch (err) {
+    console.debug("Could not fetch models dynamically:", err);
+  }
+}
 
 function initTabs() {
   const tabBtns = document.querySelectorAll(".tab-btn");

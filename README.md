@@ -115,6 +115,9 @@ kage destroy alpha --force
 | `kage stop [name]` | Halts execution gracefully via QMP ACPI shutdown. |
 | `kage destroy [name]` | Cleanly removes VM overlays, cloud-init seed, and persistent records. |
 | `kage agent run [name]` | Executes an autonomous AI agent task with live step-by-step console logs. |
+| `kage model onboard` | Connects an AI provider (OmniRoute, Anthropic, OpenAI, Ollama, DeepSeek) & discovers models. |
+| `kage model list` | Lists configured providers, endpoints, active default model, and available models. |
+| `kage model set-default` | Sets the active default model for AI agent tasks. |
 | `kage logs [name]` | Displays QEMU, serial console, or Host Bridge API logs for debugging. |
 | `kage config` | Inspects or updates global engine preferences. |
 

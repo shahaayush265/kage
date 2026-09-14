@@ -79,17 +79,10 @@ class QEMURunner:
                 "-vnc",
                 f"127.0.0.1:{vnc_display_num}",
                 "-vga",
-                "virtio",
-            ]
-        )
-
-        # USB Tablet for absolute mouse positioning (crucial for GUI agent precision)
-        cmd.extend(
-            [
+                "std",
+                "-usb",
                 "-device",
-                "qemu-xhci,id=xhci",
-                "-device",
-                "usb-tablet,bus=xhci.0",
+                "usb-tablet",
             ]
         )
 
