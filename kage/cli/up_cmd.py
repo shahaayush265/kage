@@ -74,8 +74,18 @@ def up_command(
                 existing.ports = PortAllocator.allocate(name)
                 existing.save()
 
+            # Regenerate cloud-init ISO to ensure latest service scripts are present
+            user_data = CloudConfigGenerator.generate_user_data(existing)
+            meta_data = CloudConfigGenerator.generate_meta_data(existing.name)
+            CloudInitIsoBuilder.create_cidata_iso(
+                output_path=existing.cloud_init_iso,
+                user_data=user_data,
+                meta_data=meta_data,
+            )
+
             pid = QEMURunner.start(existing)
-            _spawn_api_server(existing)
+            api_pid = _spawn_api_server(existing)
+            existing.api_pid = api_pid
             existing.status = InstanceStatus.RUNNING
             existing.save()
             console.print(

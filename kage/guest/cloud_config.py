@@ -45,6 +45,7 @@ manage_etc_hosts: true
 bootcmd:
   - systemctl mask systemd-networkd-wait-online.service || true
   - systemctl stop systemd-networkd-wait-online.service || true
+  - mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix || true
 
 users:
   - name: kage
@@ -119,6 +120,27 @@ write_files:
     permissions: '0755'
     content: {service_b64}
 
+  - path: /usr/local/bin/kage-desktop-launcher
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      export DISPLAY=:0
+      export HOME=/home/kage
+      export USER=kage
+      export XDG_CURRENT_DESKTOP=XFCE
+      export XDG_SESSION_TYPE=x11
+
+      rm -f /tmp/.X0-lock /tmp/.X11-unix/X0 2>/dev/null || true
+      mkdir -p /tmp/.X11-unix 2>/dev/null || true
+
+      Xvfb :0 -screen 0 1280x800x24 -ac +extension GLX +render -noreset &
+      sleep 1
+
+      dbus-launch --exit-with-session startxfce4 &
+      sleep 2
+
+      exec x11vnc -display :0 -forever -shared -nopw -rfbport 5900 -wait 5 -defer 2
+
   - path: /etc/systemd/system/kage-desktop.service
     permissions: '0644'
     content: |
@@ -130,13 +152,9 @@ write_files:
       [Service]
       Type=simple
       User=kage
-      Environment=DISPLAY=:0
-      Environment=HOME=/home/kage
-      Environment=USER=kage
-      Environment=XDG_SESSION_TYPE=x11
-      Environment=XDG_CURRENT_DESKTOP=XFCE
+      Group=kage
       WorkingDirectory=/home/kage
-      ExecStart=/bin/bash -c "mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix && (Xvfb :0 -screen 0 1280x800x24 -ac +extension GLX +render -noreset 2>/dev/null || true) & sleep 1 && export DISPLAY=:0 && (dbus-launch --exit-with-session startxfce4 2>/dev/null || true) & sleep 2 && exec x11vnc -display :0 -forever -shared -nopw -rfbport 5900 -wait 5 -defer 2"
+      ExecStart=/usr/local/bin/kage-desktop-launcher
       Restart=always
       RestartSec=2
 
@@ -169,6 +187,7 @@ runcmd:
   - chown -R kage:kage /home/kage /opt/kage-guest /workspace
   - chmod 700 /home/kage/.ssh
   - chmod 1777 /tmp/.X11-unix
+  - chmod 755 /usr/local/bin/kage-desktop-launcher
   - |
     # Mount virtio 9p workspace if available
     if ! grep -q "workspace /workspace" /etc/fstab; then
