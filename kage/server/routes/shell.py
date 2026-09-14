@@ -93,18 +93,19 @@ async def execute_shell_command(name: str, req: ShellExecRequest):
         "-o",
         "ConnectTimeout=5",
         "kage@127.0.0.1",
-        f"bash -c {cmd_to_run!r}",
+        "bash -s",
     ]
 
     try:
         proc = await asyncio.create_subprocess_exec(
             *ssh_cmd,
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         try:
             stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(), timeout=req.timeout
+                proc.communicate(input=cmd_to_run.encode("utf-8")), timeout=req.timeout
             )
             duration = time.time() - start_time
             return ShellExecResponse(

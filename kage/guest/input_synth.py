@@ -18,6 +18,18 @@ class InputSynthesizer:
     def _get_env(self) -> dict:
         env = os.environ.copy()
         env["DISPLAY"] = self.display
+        if "XAUTHORITY" not in env:
+            home_auth = os.path.expanduser("~/.Xauthority")
+            if os.path.exists(home_auth):
+                env["XAUTHORITY"] = home_auth
+            else:
+                import glob
+
+                auth_files = sorted(
+                    glob.glob("/tmp/serverauth.*"), key=os.path.getmtime, reverse=True
+                )
+                if auth_files:
+                    env["XAUTHORITY"] = auth_files[0]
         return env
 
     def _run_xdotool(self, args: List[str]) -> bool:

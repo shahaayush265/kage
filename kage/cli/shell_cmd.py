@@ -79,11 +79,12 @@ def shell_command(
             "kage@127.0.0.1",
         ]
         if command:
-            ssh_cmd.append(command)
+            res = subprocess.run(ssh_cmd + ["bash", "-s"], input=command.encode("utf-8"), check=False)
+            raise typer.Exit(code=res.returncode)
         else:
             console.print(f"[dim]Connecting to {inst.name} via SSH on port {p.ssh}...[/dim]")
-        res = subprocess.run(ssh_cmd, check=False)
-        raise typer.Exit(code=res.returncode)
+            res = subprocess.run(ssh_cmd, check=False)
+            raise typer.Exit(code=res.returncode)
     else:
         console.print("[red]SSH client not found in PATH.[/red]")
         raise typer.Exit(code=1)

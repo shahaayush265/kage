@@ -43,7 +43,7 @@ hostname: {instance.name}
 manage_etc_hosts: true
 
 bootcmd:
-  - systemctl mask systemd-networkd-wait-online.service systemd-networkd.service || true
+  - systemctl mask systemd-networkd-wait-online.service || true
   - systemctl stop systemd-networkd-wait-online.service || true
 
 users:
@@ -75,6 +75,30 @@ write_files:
       PermitRootLogin yes
       UseDNS no
       GSSAPIAuthentication no
+
+  - path: /etc/systemd/system/getty@tty1.service.d/override.conf
+    permissions: '0644'
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=-/sbin/agetty --autologin kage --noclear %I $TERM
+      Type=idle
+
+  - path: /home/kage/.xinitrc
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      exec startxfce4 || exec xfce4-session
+
+  - path: /home/kage/.bash_profile
+    permissions: '0644'
+    content: |
+      # Auto-start graphical X11 desktop if on tty1
+      if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+        if which startxfce4 >/dev/null 2>&1 || which startx >/dev/null 2>&1; then
+          exec startx /usr/bin/startxfce4 -- :0 vt1 -novtswitch -sharevts -keeptty
+        fi
+      fi
 
   - path: /opt/kage-guest/kage/__init__.py
     permissions: '0644'
@@ -131,6 +155,30 @@ write_files:
       [Install]
       WantedBy=multi-user.target
 
+  - path: /etc/systemd/system/kage-desktop.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Kage XFCE Graphical Desktop Session
+      After=systemd-user-sessions.service network.target
+      Wants=network.target
+
+      [Service]
+      Type=simple
+      User=kage
+      Environment=DISPLAY=:0
+      Environment=HOME=/home/kage
+      Environment=USER=kage
+      Environment=XDG_SESSION_TYPE=x11
+      Environment=XDG_CURRENT_DESKTOP=XFCE
+      WorkingDirectory=/home/kage
+      ExecStart=/bin/bash -c "if which startxfce4 >/dev/null 2>&1; then exec startx /usr/bin/startxfce4 -- :0 vt1 -novtswitch -sharevts -keeptty; fi"
+      Restart=always
+      RestartSec=3
+
+      [Install]
+      WantedBy=multi-user.target
+
 runcmd:
   - mkdir -p /workspace /home/kage/workspace /home/kage/.ssh
   - chown -R kage:kage /home/kage /opt/kage-guest /workspace
@@ -144,4 +192,6 @@ runcmd:
   - systemctl daemon-reload
   - systemctl restart ssh || systemctl restart sshd || true
   - systemctl enable --now kage-guest-agent.service || true
+  - systemctl enable --now kage-desktop.service || true
+  - systemctl restart getty@tty1.service || true
 """
