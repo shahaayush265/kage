@@ -77,9 +77,11 @@ class QEMURunner:
             ]
         )
 
-        # Display and Hardware VGA configuration
+        # Headless background execution & Hardware VGA configuration
         cmd.extend(
             [
+                "-display",
+                "none",
                 "-vga",
                 "std",
                 "-usb",

@@ -47,6 +47,8 @@ def test_build_qemu_cmd(tmp_path):
     assert "2" in cmd
     assert "-m" in cmd
     assert "2048M" in cmd
+    assert "-display" in cmd
+    assert "none" in cmd
     assert "-vga" in cmd
     assert "std" in cmd
     assert "hostfwd=tcp::2222-:22" in " ".join(cmd)

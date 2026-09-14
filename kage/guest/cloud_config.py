@@ -173,7 +173,7 @@ write_files:
       User=kage
       Environment=DISPLAY=:0
       Environment=HOME=/home/kage
-      Environment=PYTHONPATH=/opt/kage-guest
+      Environment=PYTHONPATH=/usr/lib/python3/dist-packages:/opt/kage-guest
       WorkingDirectory=/home/kage
       ExecStart=/usr/bin/python3 /opt/kage-guest/kage/guest/agent_service.py
       Restart=always
