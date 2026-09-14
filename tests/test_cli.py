@@ -32,7 +32,8 @@ def test_cli_init_skip_download(tmp_path, monkeypatch):
 
     result = runner.invoke(app, ["init", "--skip-download"])
     assert result.exit_code == 0
-    assert "Host Capabilities" in result.output
+    assert "Operating System" in result.output
+    assert "Hypervisor Accel" in result.output
 
 
 def test_cli_list_empty(tmp_path, monkeypatch):

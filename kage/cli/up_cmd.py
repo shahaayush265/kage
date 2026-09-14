@@ -84,7 +84,13 @@ def up_command(
             _print_instance_summary(existing)
             return
 
-    console.print(f"[bold blue]Provisioning new Kage instance '{name}'...[/bold blue]")
+    console.print(
+        Panel.fit(
+            f"[bold cyan]Spinning Up VM Instance: [bold white]{name}[/bold white][/bold cyan]\n"
+            f"[dim]vCPUs:[/dim] {cpus} | [dim]RAM:[/dim] {memory} | [dim]Workspace:[/dim] {shared_dir or 'None'}",
+            border_style="cyan",
+        )
+    )
 
     # Check base image
     base_image_path = ImageManager.get_base_image_path()
@@ -92,7 +98,6 @@ def up_command(
         console.print(
             f"[yellow]Base image not found at '{base_image_path}'. Creating initial placeholder base image...[/yellow]"
         )
-        # Create minimal qcow2 base for immediate execution / testing if not downloaded yet
         try:
             qemu_img = DiskManager.get_qemu_img_bin()
             import subprocess
@@ -111,7 +116,11 @@ def up_command(
             raise typer.Exit(code=1)
 
     # 1. Allocate conflict-free ports
+    console.print("[bold cyan][1/5][/bold cyan] Allocating conflict-free network ports...")
     ports = PortAllocator.allocate(name)
+    console.print(
+        f"  [green]✓[/green] Ports: SSH [bold]{ports.ssh}[/bold], VNC [bold]{ports.vnc}[/bold], noVNC [bold]{ports.novnc}[/bold], API [bold]{ports.api}[/bold]"
+    )
 
     # 2. Create Instance Config
     inst = InstanceConfig(
@@ -127,14 +136,19 @@ def up_command(
     inst.ensure_dir()
 
     # 3. Create CoW overlay disk
-    with console.status("[blue]Creating Copy-on-Write disk overlay...[/blue]"):
+    console.print("[bold cyan][2/5][/bold cyan] Creating Copy-on-Write disk overlay...")
+    with console.status("[blue]Generating qcow2 overlay disk...[/blue]", spinner="dots"):
         DiskManager.create_overlay(
             base_image=base_image_path,
             overlay_path=inst.overlay_disk,
         )
+    console.print(f"  [green]✓[/green] Overlay created at [dim]{inst.overlay_disk}[/dim]")
 
     # 4. Generate Cloud-Init ISO
-    with console.status("[blue]Generating cloud-init NoCloud ISO...[/blue]"):
+    console.print("[bold cyan][3/5][/bold cyan] Generating cloud-init NoCloud configuration ISO...")
+    with console.status(
+        "[blue]Building ISO 9660 CIDATA filesystem in-memory...[/blue]", spinner="dots"
+    ):
         user_data = CloudConfigGenerator.generate_user_data(inst)
         meta_data = CloudConfigGenerator.generate_meta_data(inst.name)
         CloudInitIsoBuilder.create_cidata_iso(
@@ -142,20 +156,32 @@ def up_command(
             user_data=user_data,
             meta_data=meta_data,
         )
+    console.print(f"  [green]✓[/green] Cloud-init ISO created at [dim]{inst.cloud_init_iso}[/dim]")
 
     # 5. Launch QEMU daemon
+    console.print(
+        f"[bold cyan][4/5][/bold cyan] Launching QEMU hypervisor ({cpus} vCPUs, {memory} RAM)..."
+    )
     with console.status(
-        f"[bold blue]Launching QEMU hypervisor ({cpus} vCPUs, {memory} RAM)...[/bold blue]"
+        "[bold blue]Starting VM process in background...[/bold blue]", spinner="dots"
     ):
         pid = QEMURunner.start(inst)
+    console.print(f"  [green]✓[/green] QEMU running with PID [bold]{pid}[/bold]")
 
     # 6. Launch Host Bridge API Server
-    api_pid = _spawn_api_server(inst)
-    inst.api_pid = api_pid
-    inst.status = InstanceStatus.RUNNING
-    inst.save()
+    console.print(
+        "[bold cyan][5/5][/bold cyan] Spawning Host Bridge API & noVNC WebSocket server..."
+    )
+    with console.status(
+        "[blue]Starting FastAPI bridge on port " + str(ports.api) + "...[/blue]", spinner="dots"
+    ):
+        api_pid = _spawn_api_server(inst)
+        inst.api_pid = api_pid
+        inst.status = InstanceStatus.RUNNING
+        inst.save()
+    console.print(f"  [green]✓[/green] Host Bridge active with PID [bold]{api_pid}[/bold]")
 
-    console.print(f"\n[bold green]🚀 Instance '{name}' is up and running![/bold green]\n")
+    console.print(f"\n[bold green]🚀 Instance '{name}' is up and ready![/bold green]\n")
     _print_instance_summary(inst)
 
 
