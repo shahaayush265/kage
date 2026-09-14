@@ -72,18 +72,16 @@ mkdir -p "$KAGE_DIR" "$BIN_DIR"
 
 if command -v uv >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓${RESET} Using uv for high-speed installation"
-    if [ ! -d "$KAGE_VENV" ]; then
-        uv venv "$KAGE_VENV" --quiet
-    fi
+    uv venv "$KAGE_VENV" --allow-existing --quiet 2>/dev/null || uv venv "$KAGE_VENV" --clear --quiet
     uv pip install --python "$KAGE_VENV/bin/python" "git+https://github.com/shahaayush265/kage.git" 2>/dev/null || \
+    uv pip install --python "$KAGE_VENV/bin/python" "kage @ git+https://github.com/shahaayush265/kage.git" 2>/dev/null || \
     uv pip install --python "$KAGE_VENV/bin/python" -e .
 elif command -v python3 >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓${RESET} Using python3 venv"
-    if [ ! -d "$KAGE_VENV" ]; then
-        python3 -m venv "$KAGE_VENV"
-    fi
+    python3 -m venv "$KAGE_VENV" 2>/dev/null || true
     "$KAGE_VENV/bin/pip" install --quiet --upgrade pip
     "$KAGE_VENV/bin/pip" install --quiet "git+https://github.com/shahaayush265/kage.git" 2>/dev/null || \
+    "$KAGE_VENV/bin/pip" install --quiet "kage @ git+https://github.com/shahaayush265/kage.git" 2>/dev/null || \
     "$KAGE_VENV/bin/pip" install --quiet -e .
 else
     echo -e "${RED}Error: Python 3.10+ is required to install Kage.${RESET}"
