@@ -84,22 +84,6 @@ write_files:
       ExecStart=-/sbin/agetty --autologin kage --noclear %I $TERM
       Type=idle
 
-  - path: /home/kage/.xinitrc
-    permissions: '0755'
-    content: |
-      #!/bin/bash
-      exec startxfce4 || exec xfce4-session
-
-  - path: /home/kage/.bash_profile
-    permissions: '0644'
-    content: |
-      # Auto-start graphical X11 desktop if on tty1
-      if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
-        if which startxfce4 >/dev/null 2>&1 || which startx >/dev/null 2>&1; then
-          exec startx /usr/bin/startxfce4 -- :0 vt1 -novtswitch -sharevts -keeptty
-        fi
-      fi
-
   - path: /opt/kage-guest/kage/__init__.py
     permissions: '0644'
     content: |
@@ -135,32 +119,12 @@ write_files:
     permissions: '0755'
     content: {service_b64}
 
-  - path: /etc/systemd/system/kage-guest-agent.service
-    permissions: '0644'
-    content: |
-      [Unit]
-      Description=Kage In-Guest Agent Bridge Service
-      After=network.target
-
-      [Service]
-      Type=simple
-      User=kage
-      Environment=DISPLAY=:0
-      Environment=PYTHONPATH=/opt/kage-guest
-      WorkingDirectory=/home/kage
-      ExecStart=/usr/bin/python3 /opt/kage-guest/kage/guest/agent_service.py
-      Restart=always
-      RestartSec=2
-
-      [Install]
-      WantedBy=multi-user.target
-
   - path: /etc/systemd/system/kage-desktop.service
     permissions: '0644'
     content: |
       [Unit]
-      Description=Kage XFCE Graphical Desktop Session
-      After=systemd-user-sessions.service network.target
+      Description=Kage XFCE GUI Desktop & x11vnc Bridge
+      After=network.target
       Wants=network.target
 
       [Service]
@@ -172,17 +136,39 @@ write_files:
       Environment=XDG_SESSION_TYPE=x11
       Environment=XDG_CURRENT_DESKTOP=XFCE
       WorkingDirectory=/home/kage
-      ExecStart=/bin/bash -c "if which startxfce4 >/dev/null 2>&1; then exec startx /usr/bin/startxfce4 -- :0 vt1 -novtswitch -sharevts -keeptty; fi"
+      ExecStart=/bin/bash -c "mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix && (Xvfb :0 -screen 0 1280x800x24 -ac +extension GLX +render -noreset 2>/dev/null || true) & sleep 1 && export DISPLAY=:0 && (dbus-launch --exit-with-session startxfce4 2>/dev/null || true) & sleep 2 && exec x11vnc -display :0 -forever -shared -nopw -rfbport 5900 -wait 5 -defer 2"
       Restart=always
-      RestartSec=3
+      RestartSec=2
+
+      [Install]
+      WantedBy=multi-user.target
+
+  - path: /etc/systemd/system/kage-guest-agent.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=Kage In-Guest Agent Bridge Service
+      After=kage-desktop.service
+
+      [Service]
+      Type=simple
+      User=kage
+      Environment=DISPLAY=:0
+      Environment=HOME=/home/kage
+      Environment=PYTHONPATH=/opt/kage-guest
+      WorkingDirectory=/home/kage
+      ExecStart=/usr/bin/python3 /opt/kage-guest/kage/guest/agent_service.py
+      Restart=always
+      RestartSec=2
 
       [Install]
       WantedBy=multi-user.target
 
 runcmd:
-  - mkdir -p /workspace /home/kage/workspace /home/kage/.ssh
+  - mkdir -p /workspace /home/kage/workspace /home/kage/.ssh /tmp/.X11-unix
   - chown -R kage:kage /home/kage /opt/kage-guest /workspace
   - chmod 700 /home/kage/.ssh
+  - chmod 1777 /tmp/.X11-unix
   - |
     # Mount virtio 9p workspace if available
     if ! grep -q "workspace /workspace" /etc/fstab; then
@@ -191,7 +177,6 @@ runcmd:
   - mount -a || true
   - systemctl daemon-reload
   - systemctl restart ssh || systemctl restart sshd || true
-  - systemctl enable --now kage-guest-agent.service || true
   - systemctl enable --now kage-desktop.service || true
-  - systemctl restart getty@tty1.service || true
+  - systemctl enable --now kage-guest-agent.service || true
 """

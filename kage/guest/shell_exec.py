@@ -34,6 +34,7 @@ class GuestShellExecutor:
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=timeout,
+                start_new_session=True,
                 check=False,
             )
             duration = time.time() - start_time

@@ -60,9 +60,14 @@ class QEMURunner:
             )
 
         # Networking: User-mode NAT with dynamic host port forwardings
-        # Forward SSH (guest 22) and Guest Agent (guest 9000)
+        # Forward SSH (guest 22), Guest Agent (guest 9000), and Desktop VNC (guest 5900)
         p = instance.ports
-        net_hostfwd = f"user,id=net0,hostfwd=tcp::{p.ssh}-:22,hostfwd=tcp::{p.guest_agent}-:9000"
+        net_hostfwd = (
+            f"user,id=net0,"
+            f"hostfwd=tcp::{p.ssh}-:22,"
+            f"hostfwd=tcp::{p.guest_agent}-:9000,"
+            f"hostfwd=tcp::{p.vnc}-:5900"
+        )
         cmd.extend(
             [
                 "-netdev",
@@ -72,12 +77,9 @@ class QEMURunner:
             ]
         )
 
-        # Display and VNC configuration
-        vnc_display_num = max(0, p.vnc - 5900)
+        # Display and Hardware VGA configuration
         cmd.extend(
             [
-                "-vnc",
-                f"127.0.0.1:{vnc_display_num}",
                 "-vga",
                 "std",
                 "-usb",

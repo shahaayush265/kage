@@ -47,8 +47,9 @@ def test_build_qemu_cmd(tmp_path):
     assert "2" in cmd
     assert "-m" in cmd
     assert "2048M" in cmd
-    assert "-vnc" in cmd
-    assert "127.0.0.1:1" in cmd  # 5901 - 5900 = 1
+    assert "-vga" in cmd
+    assert "std" in cmd
     assert "hostfwd=tcp::2222-:22" in " ".join(cmd)
     assert "hostfwd=tcp::9001-:9000" in " ".join(cmd)
+    assert "hostfwd=tcp::5901-:5900" in " ".join(cmd)
     assert "-fsdev" in cmd
