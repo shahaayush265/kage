@@ -207,6 +207,14 @@ class ModelProviderService:
         base_url = api_base or preset.get("default_api_base")
         key = api_key or (os.getenv(preset.get("env_key", "")) if preset.get("env_key") else None)
 
+        from kage.agent.router import normalize_model_for_litellm
+
+        target_model, target_base = normalize_model_for_litellm(
+            model=model,
+            api_base=base_url,
+            provider=provider,
+        )
+
         import litellm
 
         litellm.telemetry = False
@@ -214,14 +222,14 @@ class ModelProviderService:
 
         try:
             kwargs: Dict[str, Any] = {
-                "model": model,
+                "model": target_model,
                 "messages": [{"role": "user", "content": "Respond with 'ok'."}],
                 "max_tokens": 10,
             }
             if key:
                 kwargs["api_key"] = key
-            if base_url:
-                kwargs["api_base"] = base_url
+            if target_base:
+                kwargs["api_base"] = target_base
 
             resp = await litellm.acompletion(**kwargs)
             choice = resp.choices[0]

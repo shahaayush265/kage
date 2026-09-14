@@ -6,10 +6,32 @@ import pytest
 from typer.testing import CliRunner
 
 from kage.agent.providers import PROVIDER_PRESETS, ModelProviderService
+from kage.agent.router import normalize_model_for_litellm
 from kage.cli.main import app
 from kage.core.config import ProviderConfig, get_settings
 
 runner = CliRunner()
+
+
+def test_normalize_model_for_litellm():
+    # OmniRoute prefix
+    m1, b1 = normalize_model_for_litellm("omniroute/auto/gemini")
+    assert m1 == "openai/auto/gemini"
+    assert b1 == "https://api.omniroute.ai/v1"
+
+    # OmniRoute provider with custom model
+    m2, b2 = normalize_model_for_litellm("claude-3-7-sonnet-20250219", provider="omniroute")
+    assert m2 == "openai/claude-3-7-sonnet-20250219"
+    assert b2 == "https://api.omniroute.ai/v1"
+
+    # Anthropic direct
+    m3, b3 = normalize_model_for_litellm("claude-3-7-sonnet-20250219", provider="anthropic")
+    assert m3 == "anthropic/claude-3-7-sonnet-20250219"
+
+    # Custom OpenAI proxy
+    m4, b4 = normalize_model_for_litellm("my-custom-model", api_base="http://localhost:8000/v1")
+    assert m4 == "openai/my-custom-model"
+    assert b4 == "http://localhost:8000/v1"
 
 
 def test_provider_presets_definitions():
