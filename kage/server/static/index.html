@@ -30,20 +30,21 @@
     <!-- Left Screen / Live Stream -->
     <div class="screen-panel">
       <div class="screen-wrapper">
-        <img id="screen-img" src="" alt="VM Desktop Stream" style="max-width:100%; max-height:100%; display:none; cursor: crosshair;">
-        <div id="screen-placeholder" style="color: var(--text-secondary); text-align: center;">
-          <p style="font-size: 1.1rem; margin-bottom: 8px;">🖥 VM Desktop</p>
-          <p style="font-size: 0.85rem;">Select an active instance to view live desktop stream</p>
+        <div id="screen-container">
+          <div id="screen-placeholder" style="color: var(--text-secondary); text-align: center;">
+            <p style="font-size: 1.1rem; margin-bottom: 8px;">🖥 VM Desktop</p>
+            <p style="font-size: 0.85rem;">Connecting to noVNC stream...</p>
+          </div>
         </div>
       </div>
       <div class="screen-toolbar">
         <div>
-          <span>Resolution: <strong id="screen-res">1280x800</strong></span>
+          <span>Display Stream: <strong id="screen-status-label" style="color: #58a6ff;">Connecting...</strong></span>
           <span style="margin-left: 12px;">Mouse: <strong id="mouse-coords">(0, 0)</strong></span>
         </div>
         <div>
-          <button id="btn-screenshot-snapshot">📸 Take Screenshot</button>
-          <button id="btn-toggle-stream">▶ Auto-Refresh</button>
+          <button id="btn-reconnect-vnc">⚡ Reconnect Screen</button>
+          <button id="btn-fullscreen">⛶ Fullscreen</button>
         </div>
       </div>
     </div>
@@ -62,7 +63,7 @@
         <div class="agent-chat" id="agent-steps-feed">
           <div class="agent-step">
             <div class="step-header">Kage Autonomous Agent Ready</div>
-            <div class="step-thought">Enter instructions below to command the AI agent inside this VM. The agent utilizes AT-SPI accessibility parsing and visual feedback.</div>
+            <div class="step-thought">Enter instructions below to command the AI agent inside this VM. The agent utilizes AT-SPI accessibility parsing, shell execution, and visual feedback.</div>
           </div>
         </div>
 
@@ -110,6 +111,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script type="module" src="/static/app.js"></script>
 </body>
 </html>

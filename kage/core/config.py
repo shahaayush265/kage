@@ -78,3 +78,38 @@ def get_settings() -> KageSettings:
     if _global_settings is None:
         _global_settings = KageSettings.load()
     return _global_settings
+
+
+def get_or_create_ssh_key() -> tuple[Path, str]:
+    """Ensure a dedicated host SSH keypair exists in ~/.kage/kage_key."""
+    settings = get_settings()
+    settings.ensure_directories()
+    priv_key = settings.kage_home / "kage_key"
+    pub_key = settings.kage_home / "kage_key.pub"
+
+    if not priv_key.exists() or not pub_key.exists():
+        try:
+            import subprocess
+
+            subprocess.run(
+                [
+                    "ssh-keygen",
+                    "-t",
+                    "ed25519",
+                    "-N",
+                    "",
+                    "-f",
+                    str(priv_key),
+                    "-C",
+                    "kage-agent",
+                ],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            priv_key.chmod(0o600)
+        except Exception:
+            pass
+
+    pub_str = pub_key.read_text().strip() if pub_key.exists() else ""
+    return priv_key, pub_str

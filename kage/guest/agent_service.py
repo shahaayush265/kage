@@ -19,6 +19,10 @@ START_TIME = time.time()
 class GuestAgentHandler(BaseHTTPRequestHandler):
     """HTTP request handler for in-guest agent bridge."""
 
+    def address_string(self):
+        # Override to avoid slow socket.getfqdn reverse DNS lookups in VM
+        return str(self.client_address[0])
+
     def _set_headers(self, content_type: str = "application/json", status: int = 200):
         self.send_response(status)
         self.send_header("Content-Type", content_type)

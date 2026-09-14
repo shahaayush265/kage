@@ -8,7 +8,7 @@ from __future__ import annotations
 import struct
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 
 def _both_endian_16(val: int) -> bytes:
@@ -44,22 +44,36 @@ class CloudInitIsoBuilder:
 
     SECTOR_SIZE = 2048
 
+    DEFAULT_NETWORK_CONFIG = """version: 2
+ethernets:
+  all-en:
+    match:
+      name: "en*"
+    dhcp4: true
+  all-eth:
+    match:
+      name: "eth*"
+    dhcp4: true
+"""
+
     @classmethod
     def create_cidata_iso(
         cls,
         output_path: Union[str, Path],
         user_data: str,
         meta_data: str,
-        network_config: str = "version: 2\n",
+        network_config: Optional[str] = None,
     ) -> Path:
         """Create a bootable NoCloud cidata.iso file containing user-data and meta-data."""
         out_p = Path(output_path)
         out_p.parent.mkdir(parents=True, exist_ok=True)
 
+        net_cfg = network_config if network_config is not None else cls.DEFAULT_NETWORK_CONFIG
+
         files: Dict[str, bytes] = {
             "user-data": user_data.encode("utf-8"),
             "meta-data": meta_data.encode("utf-8"),
-            "network-config": network_config.encode("utf-8"),
+            "network-config": net_cfg.encode("utf-8"),
         }
 
         iso_bytes = cls.build_iso(files, volume_id="cidata")

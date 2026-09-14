@@ -46,14 +46,14 @@ def create_app(target_instance: Optional[str] = None) -> FastAPI:
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-    @app.get("/", response_class=HTMLResponse)
+    @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
     async def index_root():
         index_file = STATIC_DIR / "index.html"
         if index_file.exists():
             return FileResponse(index_file)
         return HTMLResponse("<h1>Kage Web Console</h1><p>Static console not built yet.</p>")
 
-    @app.get("/view/{name}", response_class=HTMLResponse)
+    @app.api_route("/view/{name}", methods=["GET", "HEAD"], response_class=HTMLResponse)
     async def view_instance(name: str):
         index_file = STATIC_DIR / "index.html"
         if index_file.exists():

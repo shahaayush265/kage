@@ -1,8 +1,9 @@
-// Kage Web Console Frontend Controller
+// Kage Web Console Frontend Controller with noVNC Integration
+
+import RFB from "/static/novnc/core/rfb.js";
 
 let currentInstance = "";
-let streamInterval = null;
-let isStreaming = false;
+let rfb = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   initTabs();
@@ -12,10 +13,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function initTabs() {
   const tabBtns = document.querySelectorAll(".tab-btn");
-  tabBtns.forEach(btn => {
+  tabBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
-      tabBtns.forEach(b => b.classList.remove("active"));
-      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+      tabBtns.forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
       btn.classList.add("active");
       const targetId = btn.getAttribute("data-tab");
       document.getElementById(targetId).classList.add("active");
@@ -31,6 +32,18 @@ function setupEventListeners() {
   });
 
   document.getElementById("btn-refresh-status").addEventListener("click", fetchInstances);
+  document.getElementById("btn-reconnect-vnc").addEventListener("click", () => {
+    if (currentInstance) connectVNC(currentInstance);
+  });
+
+  document.getElementById("btn-fullscreen").addEventListener("click", () => {
+    const container = document.getElementById("screen-container");
+    if (!document.fullscreenElement) {
+      container.requestFullscreen().catch(err => console.error(err));
+    } else {
+      document.exitFullscreen();
+    }
+  });
 
   // Shell execution
   const shellInput = document.getElementById("shell-cmd-input");
@@ -41,69 +54,29 @@ function setupEventListeners() {
     const termOutput = document.getElementById("terminal-output");
     termOutput.textContent += `\n$ ${cmd}\n`;
     shellInput.value = "";
+    execBtn.disabled = true;
+    execBtn.textContent = "Running...";
     try {
       const resp = await fetch(`/api/v1/instances/${currentInstance}/shell/exec`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: cmd }),
+        body: JSON.stringify({ command: cmd, timeout: 30.0 }),
       });
       const data = await resp.json();
       if (data.stdout) termOutput.textContent += data.stdout;
       if (data.stderr) termOutput.textContent += `[stderr] ${data.stderr}\n`;
+      if (!data.stdout && !data.stderr) termOutput.textContent += `[Exit code: ${data.exit_code}]\n`;
       termOutput.scrollTop = termOutput.scrollHeight;
     } catch (err) {
       termOutput.textContent += `[Error: ${err.message}]\n`;
+    } finally {
+      execBtn.disabled = false;
+      execBtn.textContent = "Execute";
     }
   };
   execBtn.addEventListener("click", runShell);
   shellInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") runShell();
-  });
-
-  // Screen streaming and clicks
-  const screenImg = document.getElementById("screen-img");
-  screenImg.addEventListener("click", async (e) => {
-    if (!currentInstance) return;
-    const rect = screenImg.getBoundingClientRect();
-    const scaleX = 1280 / rect.width;
-    const scaleY = 800 / rect.height;
-    const x = Math.round((e.clientX - rect.x) * scaleX);
-    const y = Math.round((e.clientY - rect.y) * scaleY);
-
-    try {
-      await fetch(`/api/v1/instances/${currentInstance}/gui/click`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ x, y, button: 1 }),
-      });
-      setTimeout(refreshScreenshot, 150);
-    } catch (err) {
-      console.error("Click error:", err);
-    }
-  });
-
-  screenImg.addEventListener("mousemove", (e) => {
-    const rect = screenImg.getBoundingClientRect();
-    const scaleX = 1280 / rect.width;
-    const scaleY = 800 / rect.height;
-    const x = Math.round((e.clientX - rect.x) * scaleX);
-    const y = Math.round((e.clientY - rect.y) * scaleY);
-    document.getElementById("mouse-coords").textContent = `(${x}, ${y})`;
-  });
-
-  document.getElementById("btn-screenshot-snapshot").addEventListener("click", refreshScreenshot);
-
-  const toggleBtn = document.getElementById("btn-toggle-stream");
-  toggleBtn.addEventListener("click", () => {
-    if (isStreaming) {
-      clearInterval(streamInterval);
-      isStreaming = false;
-      toggleBtn.textContent = "▶ Auto-Refresh";
-    } else {
-      isStreaming = true;
-      toggleBtn.textContent = "⏸ Pause Refresh";
-      streamInterval = setInterval(refreshScreenshot, 1000);
-    }
   });
 
   // Tree inspector
@@ -138,7 +111,7 @@ function setupEventListeners() {
       const data = await resp.json();
 
       if (data.steps) {
-        data.steps.forEach(s => {
+        data.steps.forEach((s) => {
           const stepEl = document.createElement("div");
           stepEl.className = "agent-step";
           let toolHtml = "";
@@ -171,7 +144,6 @@ function setupEventListeners() {
     } finally {
       runAgentBtn.disabled = false;
       runAgentBtn.textContent = "Run Agent";
-      refreshScreenshot();
     }
   });
 }
@@ -188,20 +160,86 @@ async function fetchInstances() {
       return;
     }
 
-    list.forEach(inst => {
+    list.forEach((inst) => {
       const opt = document.createElement("option");
       opt.value = inst.name;
       opt.textContent = `${inst.name} (${inst.status})`;
       select.appendChild(opt);
     });
 
-    if (!currentInstance || !list.find(i => i.name === currentInstance)) {
+    // Extract instance from URL path if /view/{name}
+    const pathParts = window.location.pathname.split("/");
+    if (pathParts[1] === "view" && pathParts[2]) {
+      const targetFromUrl = pathParts[2];
+      if (list.find((i) => i.name === targetFromUrl)) {
+        currentInstance = targetFromUrl;
+      }
+    }
+
+    if (!currentInstance || !list.find((i) => i.name === currentInstance)) {
       currentInstance = list[0].name;
     }
     select.value = currentInstance;
     updateInstanceView();
   } catch (err) {
     console.error("Failed fetching instances:", err);
+  }
+}
+
+function connectVNC(instanceName) {
+  if (rfb) {
+    try {
+      rfb.disconnect();
+    } catch (e) {}
+    rfb = null;
+  }
+
+  const container = document.getElementById("screen-container");
+  container.innerHTML = "";
+
+  const statusLabel = document.getElementById("screen-status-label");
+  statusLabel.textContent = "Connecting to QEMU VNC...";
+  statusLabel.style.color = "#58a6ff";
+
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${protocol}//${window.location.host}/ws/vnc/${instanceName}`;
+
+  try {
+    rfb = new RFB(container, wsUrl, {
+      credentials: { password: "" },
+      wsProtocols: ["binary"],
+    });
+
+    rfb.scaleViewport = true;
+    rfb.resizeSession = false;
+    rfb.clipViewport = false;
+    rfb.focusOnClick = true;
+
+    rfb.addEventListener("connect", () => {
+      console.log("Connected to noVNC session for", instanceName);
+      statusLabel.textContent = "Live 60 FPS (Connected)";
+      statusLabel.style.color = "#3fb950";
+    });
+
+    rfb.addEventListener("disconnect", (e) => {
+      console.log("noVNC disconnected:", e);
+      statusLabel.textContent = "Disconnected (Retrying...)";
+      statusLabel.style.color = "#d29922";
+      setTimeout(() => {
+        if (currentInstance === instanceName) {
+          connectVNC(instanceName);
+        }
+      }, 2500);
+    });
+
+    rfb.addEventListener("capabilities", (e) => {
+      console.log("VNC server capabilities:", e.detail);
+    });
+
+  } catch (err) {
+    console.error("RFB init error:", err);
+    statusLabel.textContent = "Error initializing VNC";
+    statusLabel.style.color = "#da3633";
   }
 }
 
@@ -229,38 +267,17 @@ async function updateInstanceView() {
       <p><strong>Name:</strong> ${inst.name}</p>
       <p><strong>Status:</strong> ${inst.status}</p>
       <p><strong>CPUs:</strong> ${inst.cpus} | <strong>Memory:</strong> ${inst.memory_mb} MB</p>
-      <p><strong>SSH Port:</strong> <code>${p.ssh || 'N/A'}</code> (ssh kage@127.0.0.1 -p ${p.ssh || 2222})</p>
-      <p><strong>VNC Port:</strong> <code>${p.vnc || 'N/A'}</code></p>
-      <p><strong>noVNC Port:</strong> <code>${p.novnc || 'N/A'}</code></p>
-      <p><strong>Guest Agent Port:</strong> <code>${p.guest_agent || 'N/A'}</code></p>
-      <p><strong>Host Bridge API:</strong> <code>${p.api || 'N/A'}</code></p>
-      <p><strong>Shared Directory:</strong> ${inst.shared_dir || 'None'}</p>
+      <p><strong>SSH Port:</strong> <code>${p.ssh || "N/A"}</code> (<code>ssh kage@127.0.0.1 -p ${p.ssh || 2222}</code>)</p>
+      <p><strong>VNC Port:</strong> <code>127.0.0.1:${p.vnc || 5900}</code></p>
+      <p><strong>Host Bridge API:</strong> <code>http://127.0.0.1:${p.api || 8000}</code></p>
+      <p><strong>Shared Directory:</strong> ${inst.shared_dir || "None"}</p>
     `;
 
-    // Refresh display
-    refreshScreenshot();
+    // Connect noVNC live stream
+    connectVNC(currentInstance);
   } catch (err) {
     console.error("Error updating view:", err);
   }
-}
-
-async function refreshScreenshot() {
-  if (!currentInstance) return;
-  const screenImg = document.getElementById("screen-img");
-  const placeholder = document.getElementById("screen-placeholder");
-  const timestamp = new Date().getTime();
-  const url = `/api/v1/instances/${currentInstance}/gui/screenshot?t=${timestamp}`;
-
-  const testImg = new Image();
-  testImg.onload = () => {
-    screenImg.src = url;
-    screenImg.style.display = "block";
-    placeholder.style.display = "none";
-  };
-  testImg.onerror = () => {
-    // If not reachable yet
-  };
-  testImg.src = url;
 }
 
 async function refreshTree() {
@@ -276,6 +293,6 @@ async function refreshTree() {
       viewer.textContent = JSON.stringify(data, null, 2);
     }
   } catch (err) {
-    viewer.textContent = `Error loading accessibility tree: ${err.message}`;
+    viewer.textContent = `Accessibility tree unavailable: ${err.message}`;
   }
 }

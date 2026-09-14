@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
+from kage.core.config import get_or_create_ssh_key
 from kage.core.instance import InstanceConfig
 
 
@@ -19,6 +20,10 @@ local-hostname: {instance_name}
 
     @classmethod
     def generate_user_data(cls, instance: InstanceConfig) -> str:
+        # Get or create dedicated host SSH key
+        _, pub_key_str = get_or_create_ssh_key()
+        ssh_keys_yaml = f"      - {pub_key_str}" if pub_key_str else ""
+
         # Read the guest agent python scripts to embed into the VM
         guest_dir = Path(__file__).parent
         atspi_py = (guest_dir / "atspi_tree.py").read_text(encoding="utf-8")
@@ -37,6 +42,10 @@ local-hostname: {instance_name}
 hostname: {instance.name}
 manage_etc_hosts: true
 
+bootcmd:
+  - systemctl mask systemd-networkd-wait-online.service systemd-networkd.service || true
+  - systemctl stop systemd-networkd-wait-online.service || true
+
 users:
   - name: kage
     gecos: Kage Agent User
@@ -45,7 +54,11 @@ users:
     shell: /bin/bash
     sudo: "ALL=(ALL) NOPASSWD:ALL"
     lock_passwd: false
-    passwd: "$6$rounds=4096$kagesalt$50w7hJ2uCvhjP0tWc0VqLzLp7Q1c1u9c.3c6eL9sC1jO6c0.mO3O7r5jA7oA8m4m2O.kagehashdummy"
+    ssh_authorized_keys:
+{ssh_keys_yaml}
+  - name: root
+    ssh_authorized_keys:
+{ssh_keys_yaml}
 
 ssh_pwauth: true
 chpasswd:
@@ -55,6 +68,14 @@ chpasswd:
   expire: false
 
 write_files:
+  - path: /etc/ssh/sshd_config.d/99-kage.conf
+    permissions: '0644'
+    content: |
+      PasswordAuthentication yes
+      PermitRootLogin yes
+      UseDNS no
+      GSSAPIAuthentication no
+
   - path: /opt/kage-guest/kage/__init__.py
     permissions: '0644'
     content: |
@@ -95,7 +116,7 @@ write_files:
     content: |
       [Unit]
       Description=Kage In-Guest Agent Bridge Service
-      After=network.target display-manager.service
+      After=network.target
 
       [Service]
       Type=simple
@@ -110,27 +131,10 @@ write_files:
       [Install]
       WantedBy=multi-user.target
 
-  - path: /etc/systemd/system/x11vnc.service
-    permissions: '0644'
-    content: |
-      [Unit]
-      Description=x11vnc VNC Server for Display :0
-      After=display-manager.service
-
-      [Service]
-      Type=simple
-      User=kage
-      Environment=DISPLAY=:0
-      ExecStart=/usr/bin/x11vnc -display :0 -forever -shared -nopw -rfbport 5900
-      Restart=always
-      RestartSec=2
-
-      [Install]
-      WantedBy=multi-user.target
-
 runcmd:
-  - mkdir -p /workspace /home/kage/workspace
+  - mkdir -p /workspace /home/kage/workspace /home/kage/.ssh
   - chown -R kage:kage /home/kage /opt/kage-guest /workspace
+  - chmod 700 /home/kage/.ssh
   - |
     # Mount virtio 9p workspace if available
     if ! grep -q "workspace /workspace" /etc/fstab; then
@@ -138,6 +142,6 @@ runcmd:
     fi
   - mount -a || true
   - systemctl daemon-reload
+  - systemctl restart ssh || systemctl restart sshd || true
   - systemctl enable --now kage-guest-agent.service || true
-  - systemctl enable --now x11vnc.service || true
 """
