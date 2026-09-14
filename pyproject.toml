@@ -49,6 +49,11 @@ dev = [
     "mypy>=1.10.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/shahaayush265/kage"
+Repository = "https://github.com/shahaayush265/kage"
+Issues = "https://github.com/shahaayush265/kage/issues"
+
 [project.scripts]
 kage = "kage.cli.main:app"
 

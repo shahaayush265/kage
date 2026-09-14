@@ -8,7 +8,7 @@ Get up and running with multi-instance AI agent VMs in less than 2 minutes.
 
 ### One-Line Install
 ```bash
-curl -sSL https://raw.githubusercontent.com/kage-engine/kage/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/shahaayush265/kage/main/install.sh | bash
 ```
 
 ### Or Install via Pip / Pipx

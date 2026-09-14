@@ -2,7 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/kage-engine/kage)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/shahaayush265/kage)
+
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
 [![QEMU/KVM](https://img.shields.io/badge/Hypervisor-QEMU%20%2F%20KVM%20%2F%20HVF-orange.svg)](https://www.qemu.org)
 
@@ -14,7 +15,7 @@
 
 ### 1-Line Curl Installer
 ```bash
-curl -sSL https://raw.githubusercontent.com/kage-engine/kage/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/shahaayush265/kage/main/install.sh | bash
 ```
 
 ### Or Install via Pip / Pipx
