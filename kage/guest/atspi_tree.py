@@ -60,20 +60,27 @@ class AccessibilityNode:
         }
 
     def to_compact_str(self, depth: int = 0) -> str:
-        """Format as a compact indentation-based string for LLM context."""
+        """Format as a compact indentation-based string with center coordinates for LLMs."""
         indent = "  " * depth
         try:
             x = int(self.bounds.get("x", 0) or 0)
             y = int(self.bounds.get("y", 0) or 0)
             w = int(self.bounds.get("width", 0) or 0)
             h = int(self.bounds.get("height", 0) or 0)
-            bounds_str = f"[{x},{y},{w}x{h}]"
+            cx, cy = x + w // 2, y + h // 2
+            bounds_str = f"[{x},{y},{w}x{h}] center=({cx},{cy})"
         except Exception:
             bounds_str = "[0,0,0x0]"
 
-        name_str = f' "{self.name}"' if self.name else ""
-        states_list = [str(s) for s in self.states if s is not None]
+        clean_name = self.name.replace("\n", " ").strip()
+        name_str = f' "{clean_name}"' if clean_name else ""
+        states_list = [
+            str(s)
+            for s in self.states
+            if s is not None and s in ("focused", "editable", "checked", "active")
+        ]
         state_str = f" ({','.join(states_list)})" if states_list else ""
+
         res = f"{indent}- [{self.node_id}] <{self.role}>{name_str} {bounds_str}{state_str}\n"
         for child in self.children:
             res += child.to_compact_str(depth + 1)
@@ -127,12 +134,12 @@ class AccessibilityTreeParser:
 
         def parse_accessible(acc: Any, depth: int = 0) -> Optional[AccessibilityNode]:
             nonlocal counter
-            if acc is None or depth > 7:
+            if acc is None or depth > 8:
                 return None
 
             try:
-                name = str(acc.name or "")
-                role_name = str(acc.getRoleName() or "unknown")
+                name = str(acc.name or "").strip()
+                role_name = str(acc.getRoleName() or "unknown").strip()
 
                 states: List[str] = []
                 try:
@@ -159,6 +166,29 @@ class AccessibilityTreeParser:
                 except Exception:
                     pass
 
+                # Filter out off-screen widgets with negative coordinates
+                if (
+                    bbox["x"] < -100
+                    or bbox["y"] < -100
+                    or bbox["width"] <= 0
+                    or bbox["height"] <= 0
+                ):
+                    # Check if it has on-screen children
+                    children: List[AccessibilityNode] = []
+                    for i in range(acc.childCount):
+                        child_node = parse_accessible(acc.getChildAtIndex(i), depth + 1)
+                        if child_node:
+                            children.append(child_node)
+                    if not children:
+                        return None
+                    bbox = {"x": 0, "y": 0, "width": 0, "height": 0}
+                else:
+                    children: List[AccessibilityNode] = []
+                    for i in range(acc.childCount):
+                        child_node = parse_accessible(acc.getChildAtIndex(i), depth + 1)
+                        if child_node:
+                            children.append(child_node)
+
                 val = ""
                 try:
                     text_comp = acc.queryText()
@@ -166,18 +196,18 @@ class AccessibilityTreeParser:
                 except Exception:
                     pass
 
+                # Prune empty non-informative nodes
+                if (
+                    not name
+                    and not val
+                    and not children
+                    and bbox["width"] <= 2
+                    and bbox["height"] <= 2
+                ):
+                    return None
+
                 node_id = f"node_{counter}"
                 counter += 1
-
-                children: List[AccessibilityNode] = []
-                for i in range(acc.childCount):
-                    child_node = parse_accessible(acc.getChildAtIndex(i), depth + 1)
-                    if child_node:
-                        children.append(child_node)
-
-                # Skip completely empty uninformative container frames with 0 children
-                if not name and not children and bbox["width"] <= 1 and bbox["height"] <= 1:
-                    return None
 
                 return AccessibilityNode(
                     node_id=node_id,
@@ -237,76 +267,24 @@ class AccessibilityTreeParser:
                         parts = line.split(None, 7)
                         if len(parts) >= 8:
                             win_id, desk, x, y, w, h, host, title = parts
-                            node = AccessibilityNode(
-                                node_id=f"win_{counter}",
-                                name=title,
-                                role="window",
-                                states=["visible"],
-                                bounds={
-                                    "x": int(x),
-                                    "y": int(y),
-                                    "width": int(w),
-                                    "height": int(h),
-                                },
-                            )
-                            counter += 1
-                            root_node.children.append(node)
+                            ix, iy, iw, ih = int(x), int(y), int(w), int(h)
+                            if ix >= 0 and iy >= 0 and iw > 10 and ih > 10:
+                                node = AccessibilityNode(
+                                    node_id=f"win_{counter}",
+                                    name=title,
+                                    role="window",
+                                    states=["visible"],
+                                    bounds={
+                                        "x": ix,
+                                        "y": iy,
+                                        "width": iw,
+                                        "height": ih,
+                                    },
+                                )
+                                counter += 1
+                                root_node.children.append(node)
                     if root_node.children:
                         return root_node
-            except Exception:
-                pass
-
-        # Try xdotool search
-        if shutil.which("xdotool"):
-            try:
-                res = subprocess.run(
-                    ["xdotool", "search", "--onlyvisible", ""],
-                    env=env,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
-                    text=True,
-                    check=False,
-                )
-                if res.returncode == 0:
-                    for win_id in res.stdout.strip().splitlines():
-                        name_res = subprocess.run(
-                            ["xdotool", "getwindowname", win_id],
-                            env=env,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL,
-                            text=True,
-                            check=False,
-                        )
-                        geom_res = subprocess.run(
-                            ["xdotool", "getwindowgeometry", "--shell", win_id],
-                            env=env,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL,
-                            text=True,
-                            check=False,
-                        )
-                        geom = {}
-                        for gline in geom_res.stdout.splitlines():
-                            if "=" in gline:
-                                k, v = gline.split("=", 1)
-                                geom[k] = int(v) if v.isdigit() else v
-
-                        title = name_res.stdout.strip()
-                        if title or geom.get("WIDTH", 0) > 10:
-                            node = AccessibilityNode(
-                                node_id=f"win_{counter}",
-                                name=title,
-                                role="window",
-                                states=["visible"],
-                                bounds={
-                                    "x": int(geom.get("X", 0)),
-                                    "y": int(geom.get("Y", 0)),
-                                    "width": int(geom.get("WIDTH", 0)),
-                                    "height": int(geom.get("HEIGHT", 0)),
-                                },
-                            )
-                            counter += 1
-                            root_node.children.append(node)
             except Exception:
                 pass
 

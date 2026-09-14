@@ -6,6 +6,57 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "click_element",
+            "description": "Click a GUI button, icon, menu item, or element by its visible text label, role, or accessibility node_id (e.g. text='Terminal Emulator', text='Applications', text='Save').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {
+                        "type": "string",
+                        "description": "Visible text label or partial name of the GUI widget to click.",
+                    },
+                    "role": {
+                        "type": "string",
+                        "description": "Optional widget role filter (e.g. 'push button', 'menu', 'toggle button', 'window').",
+                    },
+                    "node_id": {
+                        "type": "string",
+                        "description": "Exact accessibility node ID (e.g. 'node_12' or 'win_4').",
+                    },
+                    "button": {
+                        "type": "integer",
+                        "description": "Mouse button: 1 for left click, 2 for middle, 3 for right click.",
+                        "default": 1,
+                    },
+                    "double": {
+                        "type": "boolean",
+                        "description": "True for double-click.",
+                        "default": False,
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "launch_app",
+            "description": "Launch a desktop application inside the VM (e.g. 'terminal', 'browser', 'thunar', 'appfinder', 'editor', 'settings').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "app_name": {
+                        "type": "string",
+                        "description": "Application name or alias (e.g. 'terminal', 'thunar', 'xfce4-appfinder', 'firefox', 'mousepad').",
+                    },
+                },
+                "required": ["app_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "execute_shell",
             "description": "Execute a bash shell command inside the guest VM.",
             "parameters": {
@@ -28,7 +79,7 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "get_accessibility_tree",
-            "description": "Retrieve the AT-SPI2 accessibility tree hierarchy of active GUI windows and widgets.",
+            "description": "Retrieve the AT-SPI2 accessibility tree hierarchy of all active GUI windows and clickable widgets with bounding boxes and center coordinates.",
             "parameters": {
                 "type": "object",
                 "properties": {},
@@ -39,7 +90,7 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "mouse_click",
-            "description": "Click at specific (x, y) desktop coordinates or on an accessibility node_id.",
+            "description": "Click at specific (x, y) desktop coordinates on the screen.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -50,10 +101,6 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
                     "y": {
                         "type": "integer",
                         "description": "Y coordinate on screen.",
-                    },
-                    "node_id": {
-                        "type": "string",
-                        "description": "Target accessibility node ID (e.g. 'node_3' or 'btn_submit').",
                     },
                     "button": {
                         "type": "integer",
@@ -66,6 +113,7 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
                         "default": False,
                     },
                 },
+                "required": ["x", "y"],
             },
         },
     },
@@ -107,7 +155,7 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "key_combination",
-            "description": "Press a key combination or special key (e.g. 'ctrl+c', 'Return', 'alt+F4', 'Escape').",
+            "description": "Press a key combination or special key (e.g. 'ctrl+c', 'Return', 'alt+F4', 'Escape', 'Super').",
             "parameters": {
                 "type": "object",
                 "properties": {

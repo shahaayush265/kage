@@ -66,7 +66,79 @@ class AgentRunner:
         base_url = self._get_guest_base_url()
 
         async with httpx.AsyncClient(timeout=60.0) as client:
-            if name == "execute_shell":
+            if name == "click_element":
+                target_text = (args.get("text") or "").strip().lower()
+                target_node_id = args.get("node_id")
+                target_role = (args.get("role") or "").strip().lower()
+                btn = int(args.get("button", 1))
+                double = bool(args.get("double", False))
+
+                tree_resp = await client.get(f"{base_url}/gui/tree")
+                tree_data = tree_resp.json().get("tree", {})
+
+                matched_node = None
+
+                def search_node(node: dict):
+                    nonlocal matched_node
+                    if matched_node:
+                        return
+
+                    node_name = (node.get("name") or "").strip().lower()
+                    node_role = (node.get("role") or "").strip().lower()
+                    node_id = node.get("node_id")
+                    center = node.get("center", {})
+                    cx, cy = center.get("x", 0), center.get("y", 0)
+
+                    if cx >= 0 and cy >= 0:
+                        if target_node_id and node_id == target_node_id:
+                            matched_node = node
+                            return
+                        if target_text and target_text in node_name:
+                            if not target_role or target_role in node_role:
+                                matched_node = node
+                                return
+
+                    for child in node.get("children", []):
+                        search_node(child)
+
+                search_node(tree_data)
+
+                if matched_node:
+                    cx = matched_node["center"]["x"]
+                    cy = matched_node["center"]["y"]
+                    await client.post(
+                        f"{base_url}/gui/click",
+                        json={"x": cx, "y": cy, "button": btn, "double": double},
+                    )
+                    return {
+                        "status": "clicked",
+                        "element": matched_node.get("name"),
+                        "role": matched_node.get("role"),
+                        "coordinates": {"x": cx, "y": cy},
+                    }
+                else:
+                    return {
+                        "error": f"Element matching text='{target_text}' or node_id='{target_node_id}' not found in current UI tree."
+                    }
+
+            elif name == "launch_app":
+                app_name = (args.get("app_name") or "").strip().lower()
+                app_map = {
+                    "terminal": "xfce4-terminal",
+                    "appfinder": "xfce4-appfinder",
+                    "apps": "xfce4-appfinder",
+                    "files": "thunar",
+                    "thunar": "thunar",
+                    "browser": "firefox || x-www-browser",
+                    "editor": "mousepad",
+                    "settings": "xfce4-settings-manager",
+                }
+                cmd = app_map.get(app_name, app_name)
+                full_cmd = f"export DISPLAY=:0; nohup {cmd} >/dev/null 2>&1 &"
+                await client.post(f"{base_url}/shell/exec", json={"command": full_cmd})
+                return {"status": "launched", "app": app_name, "command": full_cmd}
+
+            elif name == "execute_shell":
                 cmd = args.get("command", "")
                 cwd = args.get("cwd")
                 resp = await client.post(
